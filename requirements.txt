@@ -1,0 +1,7 @@
+asyncclick==7.*
+more-itertools==8.7.0
+pytest==6.*
+pytest-trio==0.7.*
+trio==0.18.*
+trio-websocket==0.9.*
+contextvars==2.4

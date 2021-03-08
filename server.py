@@ -3,7 +3,6 @@ import dataclasses
 import contextvars
 import json
 import logging
-import pdb
 import pytest
 import trio
 from contextlib import asynccontextmanager, suppress
