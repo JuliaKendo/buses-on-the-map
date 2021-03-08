@@ -32,7 +32,7 @@ def relaunch_on_disconnect(async_function):
     return inner
 
 
-def load_routes(routes_number, directory_path='routes'):
+def load_routes(routes_number, directory_path):
     for id, filename in enumerate(os.listdir(directory_path)):
         if not filename.endswith(".json"):
             continue
@@ -97,14 +97,19 @@ def get_channels(websockets_number):
     help='Задержка в обновлении координат сервера.'
 )
 @click.option(
-    '-v', '--verbose', count=True, callback=set_log_level, help='Настройка логирования.'
+    '-p', '--path', default='routes',
+    help='Путь к каталогу файлов с маршрутами.'
+)
+@click.option(
+    '-v', '--verbose', count=True, callback=set_log_level,
+    help='Настройка логирования.'
 )
 async def main(**kwargs):
     logging.basicConfig()
     try:
         async with trio.open_nursery() as nursery:
             channels = get_channels(kwargs['websockets_number'])
-            for route in load_routes(kwargs['routes_number']):
+            for route in load_routes(kwargs['routes_number'], kwargs['path']):
                 send_channel, receive_channel = random.choice(channels)
                 for bus_on_route in range(kwargs['buses_per_route']):
                     start_offset = random.randrange(len(route['coordinates']))
