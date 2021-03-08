@@ -98,7 +98,7 @@ async def talk_to_browser(request):
 
 
 @click.command()
-@click.option('-s', '--bus_port', default=8080, help='Порт для имитатора автобусов.')
+@click.option('-p', '--bus_port', default=8080, help='Порт для имитатора автобусов.')
 @click.option('-r', '--browser_port', default=8000, help='Порт для браузера.')
 @click.option('-v', '--verbose', count=True, callback=set_log_level, help='Настройка логирования.')
 async def main(**kwargs):
