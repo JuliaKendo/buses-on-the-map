@@ -30,7 +30,7 @@ class JsonFieldsError(Exception):
 
 
 @asynccontextmanager
-async def check_json(ws):
+async def handle_json_errors(ws):
     test_mode = test_mode_var.get()
     try:
         yield
@@ -53,7 +53,7 @@ def set_log_level(context, verbose):
 
 
 async def listen_buses(ws):
-    async with check_json(ws):
+    async with handle_json_errors(ws):
         bus_info = json.loads(await ws.get_message())
         required_fields = set(bus_info.keys()) ^ {field.name for field in dataclasses.fields(Bus)}
         if required_fields:
@@ -63,7 +63,7 @@ async def listen_buses(ws):
 
 async def listen_browser(ws):
     global bounds
-    async with check_json(ws):
+    async with handle_json_errors(ws):
         browser_message = json.loads(await ws.get_message())
         required_fields = set(browser_message.keys()) ^ {'data', 'msgType'}
         if required_fields:
