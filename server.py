@@ -1,3 +1,4 @@
+import datetime
 import asyncclick as click
 import dataclasses
 import contextvars
@@ -14,6 +15,8 @@ from trio_websocket import (
 )
 
 from models import Bus, WindowBounds
+
+DELAY_UPDATE = 0.3
 
 buses, bounds = dict(), WindowBounds(0, 0, 0, 0)
 test_mode_var = contextvars.ContextVar('test_mode', default=False)
@@ -64,12 +67,14 @@ async def listen_buses(ws):
 async def listen_browser(ws):
     global bounds
     async with handle_json_errors(ws):
-        browser_message = json.loads(await ws.get_message())
-        required_fields = set(browser_message.keys()) ^ {'data', 'msgType'}
-        if required_fields:
-            raise JsonFieldsError(required_fields)
-        bounds.update(*browser_message['data'].values())
-        logger.info(browser_message)
+        while True:
+            browser_message = json.loads(await ws.get_message())
+            required_fields = set(browser_message.keys()) ^ {'data', 'msgType'}
+            if required_fields:
+                raise JsonFieldsError(required_fields)
+            bounds.update(*browser_message['data'].values())
+            logger.info(browser_message)
+            await trio.sleep(DELAY_UPDATE)
 
 
 async def read_buses(request):
@@ -79,15 +84,17 @@ async def read_buses(request):
 
 
 async def send_buses(ws):
-    buses_inside = [
-        dataclasses.asdict(bus) for bus in buses.values() if bounds.is_inside(bus.lat, bus.lng)
-    ]
-    await ws.send_message(
-        json.dumps({
-            "msgType": "Buses",
-            "buses": buses_inside
-        })
-    )
+    while True:
+        buses_inside = [
+            dataclasses.asdict(bus) for bus in buses.values() if bounds.is_inside(bus.lat, bus.lng)
+        ]
+        await ws.send_message(
+            json.dumps({
+                "msgType": "Buses",
+                "buses": buses_inside
+            })
+        )
+        await trio.sleep(DELAY_UPDATE)
 
 
 async def talk_to_browser(request):

@@ -9,6 +9,8 @@ from more_itertools import first, last
 from sys import stderr
 from trio_websocket import open_websocket_url, ConnectionClosed, HandshakeError
 
+DELAY_RECONECT = 5
+
 logger = logging.getLogger('fake_bus')
 
 
@@ -27,7 +29,7 @@ def relaunch_on_disconnect(async_function):
                 await async_function(server_address, receive_channel)
             except (ConnectionClosed, HandshakeError) as error:
                 logger.info('Connection attempt failed: %s' % error)
-                await trio.sleep(5)
+                await trio.sleep(DELAY_RECONECT)
                 continue
     return inner
 
