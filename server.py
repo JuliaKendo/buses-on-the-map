@@ -57,9 +57,9 @@ def set_log_level(context, verbose):
 async def listen_buses(ws):
     async with handle_json_errors(ws):
         bus_info = json.loads(await ws.get_message())
-        required_fields = set(bus_info.keys()) ^ {field.name for field in dataclasses.fields(Bus)}
-        if required_fields:
-            raise JsonFieldsError(required_fields)
+        fields_not_matched = set(bus_info.keys()) ^ {field.name for field in dataclasses.fields(Bus)}
+        if fields_not_matched:
+            raise JsonFieldsError(fields_not_matched)
         buses[bus_info['busId']] = Bus(*bus_info.values())
 
 
@@ -68,9 +68,9 @@ async def listen_browser(ws):
     async with handle_json_errors(ws):
         while True:
             browser_message = json.loads(await ws.get_message())
-            required_fields = set(browser_message.keys()) ^ {'data', 'msgType'}
-            if required_fields:
-                raise JsonFieldsError(required_fields)
+            fields_not_matched = set(browser_message.keys()) ^ {'data', 'msgType'}
+            if fields_not_matched:
+                raise JsonFieldsError(fields_not_matched)
             bounds.update(*browser_message['data'].values())
             logger.info(browser_message)
             await trio.sleep(DELAY_UPDATE)
