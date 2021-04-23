@@ -17,8 +17,11 @@ from models import Bus, WindowBounds
 
 DELAY_UPDATE = 0.3
 
-buses, bounds = dict(), WindowBounds(0, 0, 0, 0)
+buses = dict()
+sockets_with_bounds = contextvars.ContextVar('sockets_with_bounds', default={})
 test_mode_var = contextvars.ContextVar('test_mode', default=False)
+bus = contextvars.ContextVar('bus')
+
 logger = logging.getLogger('serv_bus')
 
 
@@ -64,9 +67,9 @@ async def listen_buses(ws):
 
 
 async def listen_browser(ws):
-    global bounds
     async with handle_json_errors(ws):
         while True:
+            bounds = sockets_with_bounds.get()[ws]
             browser_message = json.loads(await ws.get_message())
             fields_not_matched = set(browser_message.keys()) ^ {'data', 'msgType'}
             if fields_not_matched:
@@ -84,6 +87,7 @@ async def read_buses(request):
 
 async def send_buses(ws):
     while True:
+        bounds = sockets_with_bounds.get()[ws]
         buses_inside = [
             dataclasses.asdict(bus) for bus in buses.values() if bounds.is_inside(bus.lat, bus.lng)
         ]
@@ -96,8 +100,18 @@ async def send_buses(ws):
         await trio.sleep(DELAY_UPDATE)
 
 
+def update_active_sockets(ws):
+    active_sockets_with_bounds = {
+        key: values for key, values in sockets_with_bounds.get().items() if not key.closed
+    }
+    if not active_sockets_with_bounds.get(ws):
+        active_sockets_with_bounds[ws] = WindowBounds(0, 0, 0, 0)
+    return active_sockets_with_bounds
+
+
 async def talk_to_browser(request):
     ws = await request.accept()
+    sockets_with_bounds.set(update_active_sockets(ws))
     async with trio.open_nursery() as nursery:
         nursery.start_soon(listen_browser, ws)
         nursery.start_soon(send_buses, ws)
@@ -144,6 +158,8 @@ async def test_bus_data_decode(nursery):
         nursery, '127.0.0.1', server.port, '/', use_ssl=False
     )
 
+    sockets_with_bounds.set(update_active_sockets(connection))
+
     with pytest.raises(json.JSONDecodeError):
         await listen_buses(connection)
 
@@ -162,6 +178,8 @@ async def test_bus_data_fields(nursery):
     connection = await connect_websocket(
         nursery, '127.0.0.1', server.port, '/', use_ssl=False
     )
+
+    sockets_with_bounds.set(update_active_sockets(connection))
 
     with pytest.raises(JsonFieldsError):
         await listen_buses(connection)
@@ -184,6 +202,8 @@ async def test_browser_data_decode(nursery):
         nursery, '127.0.0.1', server.port, '/', use_ssl=False
     )
 
+    sockets_with_bounds.set(update_active_sockets(connection))
+
     with pytest.raises(json.JSONDecodeError):
         await listen_browser(connection)
 
@@ -202,6 +222,8 @@ async def test_browser_data_fields(nursery):
     connection = await connect_websocket(
         nursery, '127.0.0.1', server.port, '/', use_ssl=False
     )
+
+    sockets_with_bounds.set(update_active_sockets(connection))
 
     with pytest.raises(JsonFieldsError):
         await listen_browser(connection)
